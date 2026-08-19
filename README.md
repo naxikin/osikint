@@ -158,3 +158,13 @@ tests/           unit tests (no network)
 
 Push to GitHub — CI runs `pytest` and builds the Docker image on every
 push/PR (`.github/workflows/ci.yml`).
+
+## Template & Credits
+
+Dashboard UI adapted from **dashdarkX-v1.0.0** — a free React admin
+dashboard template by ThemeWagon (MIT license,
+https://github.com/themewagon/dashdarkX). Design tokens (colors,
+typography, layout patterns) were ported to a standalone CSS layer
+(`dashboard/static/css/dashdarkx.css`); the React template source is not
+a runtime dependency. Earlier iterations used Product Admin (templatemo
+tm-524) and Datta Able (CodedThemes) as visual references.
