@@ -1,0 +1,264 @@
+{% extends "base.html" %}
+{% set active_page = 'index' %}
+{% block title %}Dashboard - OSINT Sosmed{% endblock %}
+{% block page_header %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="ddx-grid">
+    <div class="ddx-col-3">
+        <div class="ddx-card">
+            <div class="ddx-stat">
+                <div>
+                    <div class="ddx-stat-label">Sessions</div>
+                    <div class="ddx-stat-value" id="statSessions">-</div>
+                </div>
+                <div class="ddx-stat-icon tint-primary"><i data-feather="folder"></i></div>
+            </div>
+        </div>
+    </div>
+    <div class="ddx-col-3">
+        <div class="ddx-card">
+            <div class="ddx-stat">
+                <div>
+                    <div class="ddx-stat-label">Profiles Analyzed</div>
+                    <div class="ddx-stat-value" id="statProfiles">-</div>
+                </div>
+                <div class="ddx-stat-icon tint-success"><i data-feather="users"></i></div>
+            </div>
+        </div>
+    </div>
+    <div class="ddx-col-3">
+        <div class="ddx-card">
+            <div class="ddx-stat">
+                <div>
+                    <div class="ddx-stat-label">Keyword Matches</div>
+                    <div class="ddx-stat-value" id="statMatched">-</div>
+                </div>
+                <div class="ddx-stat-icon tint-warning"><i data-feather="target"></i></div>
+            </div>
+        </div>
+    </div>
+    <div class="ddx-col-3">
+        <div class="ddx-card">
+            <div class="ddx-stat">
+                <div>
+                    <div class="ddx-stat-label">Connections</div>
+                    <div class="ddx-stat-value" id="statConnections">-</div>
+                </div>
+                <div class="ddx-stat-icon tint-secondary"><i data-feather="git-branch"></i></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="ddx-col-6">
+        <div class="ddx-card">
+            <div class="ddx-card-header">
+                <h5 class="ddx-card-title">Risk Distribution</h5>
+            </div>
+            <div style="position:relative; height:300px;">
+                <canvas id="riskChart"></canvas>
+            </div>
+            <p class="ddx-muted ddx-small ddx-center" id="riskTotal" style="margin:10px 0 0;"></p>
+        </div>
+    </div>
+    <div class="ddx-col-6">
+        <div class="ddx-card">
+            <div class="ddx-card-header">
+                <h5 class="ddx-card-title">Profiles per Platform</h5>
+            </div>
+            <div style="position:relative; height:300px;">
+                <canvas id="platformChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="ddx-col-12">
+        <div class="ddx-card">
+            <div class="ddx-card-header">
+                <h5 class="ddx-card-title">Latest Sessions</h5>
+                <a href="/sessions" class="ddx-small">View all</a>
+            </div>
+            <div class="ddx-table-wrap" style="max-height:460px;">
+                <table class="ddx-table">
+                    <thead>
+                        <tr>
+                            <th>Session</th><th>Target</th><th>State</th>
+                            <th>Discovered</th><th>Analyzed</th><th>Matched</th>
+                            <th>Connections</th><th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="latestSessions"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(function () {
+    Chart.defaults.global.defaultFontColor = '#aeb9e1';
+    OSINT.api('/api/sessions').then(function (data) {
+        var sessions = data.sessions || [];
+        var totalProfiles = 0, totalMatched = 0, totalConnections = 0;
+        sessions.forEach(function (s) {
+            totalProfiles += s.statistics.analyzed;
+            totalMatched += s.statistics.matched;
+            totalConnections += s.connections_count;
+        });
+        $('#statSessions').text(sessions.length);
+        $('#statProfiles').text(totalProfiles);
+        $('#statMatched').text(totalMatched);
+        $('#statConnections').text(totalConnections);
+
+        var risk = {none:0, low:0, medium:0, high:0};
+        var platforms = {};
+        sessions.forEach(function (s) {
+            Object.keys(s.risk_distribution).forEach(function (k) {
+                risk[k] = (risk[k] || 0) + s.risk_distribution[k];
+            });
+            Object.keys(s.platforms).forEach(function (k) {
+                platforms[k] = (platforms[k] || 0) + s.platforms[k];
+            });
+        });
+
+        Chart.defaults.global.defaultFontColor = '#aeb9e1';
+        Chart.defaults.global.defaultFontFamily = "'Mona Sans', 'Work Sans', sans-serif";
+
+        var riskColors = ['#14ca74', '#a3e635', '#fdb52a', '#ff5a65'];
+
+        var riskCtx = document.getElementById('riskChart').getContext('2d');
+        new Chart(riskCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['None', 'Low', 'Medium', 'High'],
+                datasets: [{
+                    data: [risk.none, risk.low, risk.medium, risk.high],
+                    backgroundColor: riskColors,
+                    borderColor: '#0b1739',
+                    borderWidth: 3,
+                    hoverBorderColor: '#0b1739'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutoutPercentage: 62,
+                rotation: -Math.PI / 2,
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        boxWidth: 12,
+                        padding: 16,
+                        fontColor: '#aeb9e1',
+                        fontSize: 11
+                    }
+                },
+                tooltips: {
+                    backgroundColor: '#171923',
+                    titleFontColor: '#ffffff',
+                    bodyFontColor: '#d1dbf9',
+                    cornerRadius: 6,
+                    displayColors: true
+                },
+                animation: { animateRotate: true, duration: 800 }
+            }
+        });
+
+        $('#riskTotal').text(
+            'Total risk-scored profiles: ' +
+            (risk.none + risk.low + risk.medium + risk.high)
+        );
+
+        var platformLabels = Object.keys(platforms);
+        var platformColors = {
+            instagram: '#e1306c',
+            facebook: '#1877f2',
+            x: '#7e89ac',
+            tiktok: '#25f4ee',
+            github: '#8b949e',
+            linkedin: '#0a66c2',
+            gitlab: '#fc6d26',
+            unknown: '#64748b'
+        };
+        var platformCtx = document.getElementById('platformChart').getContext('2d');
+        new Chart(platformCtx, {
+            type: 'bar',
+            data: {
+                labels: platformLabels,
+                datasets: [{
+                    label: 'Profiles',
+                    data: platformLabels.map(function (k) { return platforms[k]; }),
+                    backgroundColor: platformLabels.map(function (k) {
+                        return platformColors[k] || platformColors.unknown;
+                    }),
+                    barPercentage: 0.6,
+                    categoryPercentage: 0.8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                legend: { display: false },
+                tooltips: {
+                    backgroundColor: '#171923',
+                    titleFontColor: '#ffffff',
+                    bodyFontColor: '#d1dbf9',
+                    cornerRadius: 6
+                },
+                scales: {
+                    yAxes: [{
+                        ticks: {
+                            beginAtZero: true,
+                            precision: 0,
+                            fontColor: '#aeb9e1',
+                            fontSize: 11
+                        },
+                        gridLines: { color: 'rgba(209,219,249,0.08)' }
+                    }],
+                    xAxes: [{
+                        ticks: {
+                            fontColor: '#aeb9e1',
+                            fontSize: 11,
+                            autoSkip: false
+                        },
+                        gridLines: { display: false }
+                    }]
+                }
+            }
+        });
+
+        var rows = sessions.slice(0, 10).map(function (s) {
+            return '<tr>' +
+                '<td>' + OSINT.esc(s.scan_id) + '</td>' +
+                '<td><b>' + OSINT.esc(s.target || '-') + '</b></td>' +
+                '<td>' + OSINT.stateBadge(s.state) + '</td>' +
+                '<td>' + s.statistics.discovered + '</td>' +
+                '<td>' + s.statistics.analyzed + '</td>' +
+                '<td>' + s.statistics.matched + '</td>' +
+                '<td>' + s.connections_count + '</td>' +
+                '<td class="actions"><a href="/profiles?session=' + encodeURIComponent(s.scan_id) + '">View</a>' +
+                '<a href="/link-analysis?session=' + encodeURIComponent(s.scan_id) + '">Graph</a>' +
+                '<a href="/reports/' + encodeURIComponent(s.scan_id) + '">Report</a>' +
+                '<a href="#" class="ddx-danger-text deleteSession" data-scan="' + OSINT.esc(s.scan_id) + '">Delete</a></td>' +
+                '</tr>';
+        });
+        $('#latestSessions').html(rows.join(''));
+
+        $('#latestSessions').on('click', '.deleteSession', function (e) {
+            e.preventDefault();
+            var scanId = $(this).data('scan');
+            if (!confirm('Delete session ' + scanId + '?\n\nThis permanently removes the report and images.')) {
+                return;
+            }
+            OSINT.api('/api/sessions/' + encodeURIComponent(scanId), {method: 'DELETE'})
+                .then(function () { location.reload(); })
+                .catch(function (err) {
+                    alert('Failed to delete: ' + (err.message || 'unknown error'));
+                });
+        });
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% set active_page = 'sessions' %}
+{% block title %}Report {{ summary.scan_id if summary else '' }} - OSINT Sosmed{% endblock %}
+{% block page_header %}Report{% endblock %}
+
+{% block content %}
+<div class="ddx-grid">
+    <div class="ddx-col-12">
+        <div class="ddx-card">
+            <div class="ddx-card-header">
+                <div>
+                    <h5 class="ddx-card-title" style="font-size:1.15rem;">OSINT Sosmed Report</h5>
+                    {% if summary %}
+                    <p class="ddx-muted ddx-small" style="margin:6px 0 0;">
+                        Target: <b>{{ summary.target or '-' }}</b> &middot;
+                        Session: <b>{{ summary.scan_id }}</b> &middot;
+                        Started: {{ summary.started_at or '-' }} &middot;
+                        Completed: {{ summary.completed_at or '-' }} &middot;
+                        Schema: {{ summary.schema_version }}
+                    </p>
+                    {% else %}
+                    <p style="margin:6px 0 0;">Report not found.</p>
+                    {% endif %}
+                </div>
+                <div class="no-print" style="display:flex; gap:10px;">
+                    <button class="ddx-btn" onclick="window.print()">
+                        <i data-feather="printer"></i> Print / PDF
+                    </button>
+                    <a class="ddx-btn ddx-btn-outline" href="/sessions">Back</a>
+                </div>
+            </div>
+            {% if summary %}
+            <div class="ddx-grid" style="gap:14px;">
+                <div class="ddx-col-3"><div class="ddx-card" style="padding:14px; text-align:center;"><div class="ddx-stat-value">{{ summary.statistics.discovered }}</div><div class="ddx-muted ddx-small">Discovered</div></div></div>
+                <div class="ddx-col-3"><div class="ddx-card" style="padding:14px; text-align:center;"><div class="ddx-stat-value">{{ summary.statistics.analyzed }}</div><div class="ddx-muted ddx-small">Analyzed</div></div></div>
+                <div class="ddx-col-3"><div class="ddx-card" style="padding:14px; text-align:center;"><div class="ddx-stat-value">{{ summary.statistics.matched }}</div><div class="ddx-muted ddx-small">Keyword Matched</div></div></div>
+                <div class="ddx-col-3"><div class="ddx-card" style="padding:14px; text-align:center;"><div class="ddx-stat-value">{{ summary.connections_count }}</div><div class="ddx-muted ddx-small">Connections</div></div></div>
+                <div class="ddx-col-3"><div class="ddx-card" style="padding:14px; text-align:center;"><div class="ddx-stat-value">{{ summary.ocr_hits }}</div><div class="ddx-muted ddx-small">OCR Hits</div></div></div>
+                <div class="ddx-col-3"><div class="ddx-card" style="padding:14px; text-align:center;"><div class="ddx-stat-value">{{ summary.reverse_matches }}</div><div class="ddx-muted ddx-small">Reverse Matches</div></div></div>
+                {% for level, count in summary.risk_distribution.items() %}
+                <div class="ddx-col-3"><div class="ddx-card" style="padding:14px; text-align:center;"><div class="ddx-stat-value" style="color:{% if level == 'none' %}#14ca74{% elif level == 'low' %}#a3e635{% elif level == 'medium' %}#fdb52a{% else %}#ff5a65{% endif %}">{{ count }}</div><div class="ddx-muted ddx-small">Risk {{ level }}</div></div></div>
+                {% endfor %}
+            </div>
+
+            <h5 class="ddx-mt-2 ddx-mb-2" style="font-family:'Work Sans'; font-weight:600;">Profiles</h5>
+            <div class="ddx-table-wrap">
+                <table class="ddx-table">
+                    <thead>
+                        <tr>
+                            <th>URL</th><th>Platform</th><th>Account Names</th>
+                            <th>Keyword</th><th>Image Hash</th><th>OCR</th>
+                            <th>Reverse</th><th>Status</th><th>Risk</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in report.profiles %}
+                        <tr>
+                            <td style="word-break:break-all;">{{ p.url }}</td>
+                            <td>{{ p.platform or 'unknown' }}</td>
+                            <td>{{ (p.account_names or []) | join(', ') | truncate(80) }}</td>
+                            <td>{{ 'yes' if p.keyword_detected else 'no' }}</td>
+                            <td>{{ (p.image_hash or '-') | truncate(12) }}</td>
+                            <td>{{ 'yes' if p.ocr_text else '-' }}</td>
+                            <td>{{ 'yes' if p.reverse_image_match else 'no' }}</td>
+                            <td>
+                                {% if p.analyze_status and p.analyze_status != 'analyzed' %}
+                                {{ p.analyze_status }} ({{ p.analyze_error | truncate(60) }})
+                                {% else %}analyzed{% endif %}
+                            </td>
+                            <td style="color:{% if p.risk_score <= 0 %}#14ca74{% elif p.risk_score <= 5 %}#a3e635{% elif p.risk_score <= 10 %}#fdb52a{% else %}#ff5a65{% endif %}; font-weight:600;">
+                                {{ p.risk_score }}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="9" class="ddx-center" style="padding:24px;">No profiles in this report.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <h5 class="ddx-mt-2 ddx-mb-2" style="font-family:'Work Sans'; font-weight:600;">Connections ({{ report.connections | length }})</h5>
+            <div class="ddx-table-wrap">
+                <table class="ddx-table">
+                    <thead>
+                        <tr>
+                            <th>Signal</th><th>Source</th><th>Target</th>
+                            <th>Score</th><th>Confidence</th><th>Evidence</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in report.connections %}
+                        <tr>
+                            <td>{{ c.signal }}</td>
+                            <td style="word-break:break-all;">{{ c.source }}</td>
+                            <td style="word-break:break-all;">{{ c.target }}</td>
+                            <td>{{ c.score }}</td>
+                            <td>{{ c.confidence }}</td>
+                            <td>{{ c.evidence | truncate(60) }}</td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="6" class="ddx-center" style="padding:24px;">No connections.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <p class="ddx-muted ddx-small" style="margin:18px 0 0;">
+                Generated for lawful public-information analysis only. Scores are
+                analytical signals, not proof of identity or intent.
+            </p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

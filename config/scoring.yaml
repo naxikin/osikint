@@ -1,0 +1,19 @@
+risk:
+  keyword_detected: 4
+  ocr_detected: 5
+  reverse_image_match: 6
+
+levels:
+  - max: 0
+    level: none
+  - max: 5
+    level: low
+  - max: 10
+    level: medium
+  - max: 999
+    level: high
+
+image_match_states:
+  high_similarity_distance: 0
+  probable_match_distance: 5
+  possible_match_distance: 10

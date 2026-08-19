@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% set active_page = 'link_analysis' %}
+{% block title %}Link Analysis - OSINT Sosmed{% endblock %}
+{% block page_header %}Link Analysis{% endblock %}
+
+{% block content %}
+<div class="ddx-grid">
+    <div class="ddx-col-12">
+        <div class="ddx-card">
+            <div class="ddx-card-header">
+                <h5 class="ddx-card-title">Connection Graph</h5>
+                <div style="min-width:280px;">
+                    <select class="ddx-input ddx-select" id="sessionSelect">
+                        <option value="">Select session...</option>
+                    </select>
+                </div>
+            </div>
+            <div class="ddx-legend ddx-mb-2" id="signalFilters"></div>
+            <div id="graphContainer"></div>
+        </div>
+    </div>
+    <div class="ddx-col-6">
+        <div class="ddx-card">
+            <div class="ddx-card-header">
+                <h5 class="ddx-card-title">Node Details</h5>
+            </div>
+            <div id="nodeDetails" class="ddx-muted">Click a node to inspect.</div>
+        </div>
+    </div>
+    <div class="ddx-col-6">
+        <div class="ddx-card">
+            <div class="ddx-card-header">
+                <h5 class="ddx-card-title">Legend</h5>
+            </div>
+            <div class="ddx-legend" id="legend"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='vendor/vis-network.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/graph.js') }}"></script>
+{% endblock %}

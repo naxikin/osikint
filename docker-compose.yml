@@ -1,0 +1,19 @@
+services:
+  dashboard:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./output:/app/output
+      # mount your own users.yaml (hashed passwords):
+      # - ./config/users.yaml:/app/config/users.yaml:ro
+    environment:
+      - OSINT_DASHBOARD_PORT=8000
+      - OSINT_DASHBOARD_USER=${OSINT_DASHBOARD_USER:-admin}
+      - OSINT_DASHBOARD_PASSWORD=${OSINT_DASHBOARD_PASSWORD:-}
+      - OSINT_DASHBOARD_SECRET_KEY=${OSINT_DASHBOARD_SECRET_KEY:-}
+      - OSINT_REGION=${OSINT_REGION:-id-id}
+      - OSINT_MAX_RESULTS=${OSINT_MAX_RESULTS:-30}
+      - OSINT_OCR_ENABLED=${OSINT_OCR_ENABLED:-true}
+      - OSINT_LEET_VARIANTS=${OSINT_LEET_VARIANTS:-true}
+    restart: unless-stopped

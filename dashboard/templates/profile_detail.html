@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% set active_page = 'profiles' %}
+{% block title %}Profile Detail - OSINT Sosmed{% endblock %}
+{% block page_header %}Profile Detail{% endblock %}
+
+{% block content %}
+<div class="ddx-grid">
+    <div class="ddx-col-12">
+        <div class="ddx-card">
+            <div class="ddx-card-header">
+                <h5 class="ddx-card-title">Profile</h5>
+            </div>
+            <div id="detailBody">Loading...</div>
+        </div>
+    </div>
+    <div class="ddx-col-6">
+        <div class="ddx-card">
+            <div class="ddx-card-header">
+                <h5 class="ddx-card-title">Image Evidence</h5>
+            </div>
+            <div class="ddx-center" id="imageBody"></div>
+        </div>
+    </div>
+    <div class="ddx-col-6">
+        <div class="ddx-card">
+            <div class="ddx-card-header">
+                <h5 class="ddx-card-title">OCR Text</h5>
+            </div>
+            <pre class="ddx-pre" id="ocrBody"></pre>
+        </div>
+    </div>
+    <div class="ddx-col-12">
+        <div class="ddx-card">
+            <div class="ddx-card-header">
+                <h5 class="ddx-card-title">Raw JSON</h5>
+            </div>
+            <pre class="ddx-pre" id="jsonBody"></pre>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(function () {
+    var session = OSINT.qs('session') || '';
+    var index = parseInt(OSINT.qs('index') || '0', 10);
+
+    OSINT.api('/api/reports/' + encodeURIComponent(session)).then(function (report) {
+        var p = (report.profiles || [])[index];
+        if (!p) {
+            $('#detailBody').text('Profile not found.');
+            return;
+        }
+        var row = function (label, value) {
+            return '<tr><th style="width:220px;">' + label + '</th><td>' + value + '</td></tr>';
+        };
+        var html = '<div class="ddx-table-wrap"><table class="ddx-table">' +
+            row('URL', '<a href="' + OSINT.esc(p.url) + '" target="_blank">' + OSINT.esc(p.url) + '</a>') +
+            row('Original URL', OSINT.esc(p.original_url || '-')) +
+            row('Platform', OSINT.esc(p.platform || 'unknown')) +
+            row('Analyze status', ((p.analyze_status && p.analyze_status !== 'analyzed')
+                ? '<span class="ddx-badge badge-failed">' + OSINT.esc(p.analyze_status) + '</span>'
+                : '<span class="ddx-badge badge-completed">analyzed</span>')) +
+            row('Analyze error', OSINT.esc(p.analyze_error || '-')) +
+            row('Keyword detected', String(p.keyword_detected)) +
+            row('Reverse image match', String(p.reverse_image_match)) +
+            row('Image hash', OSINT.esc(p.image_hash || '-')) +
+            row('Risk score', OSINT.riskBadge(
+                (p.risk_score <= 0) ? 'none' : (p.risk_score <= 5) ? 'low' : (p.risk_score <= 10) ? 'medium' : 'high',
+                p.risk_score)) +
+            '</table></div>';
+
+        html += '<h5 class="ddx-mt-2 ddx-mb-2">Account Names</h5><ul>';
+        (p.account_names || []).forEach(function (n) {
+            html += '<li>' + OSINT.esc(n) + '</li>';
+        });
+        html += '</ul>';
+
+        if (p.match_details && Object.keys(p.match_details).length) {
+            html += '<h5 class="ddx-mt-2">Match Details</h5>';
+            html += '<pre class="ddx-pre">' + OSINT.esc(JSON.stringify(p.match_details, null, 2)) + '</pre>';
+        }
+        if (p.risk_details && Object.keys(p.risk_details).length) {
+            html += '<h5 class="ddx-mt-2">Risk Details</h5>';
+            html += '<pre class="ddx-pre">' + OSINT.esc(JSON.stringify(p.risk_details, null, 2)) + '</pre>';
+        }
+        $('#detailBody').html(html);
+
+        if (p.evidence_image) {
+            $('#imageBody').html(
+                '<img src="/api/images/' + encodeURIComponent(session) + '/' + encodeURIComponent(p.evidence_image) +
+                '" alt="evidence screenshot" style="max-width:320px; width:100%; border-radius:14px;" ' +
+                'onerror="this.outerHTML=\'<p class=ddx-muted>Screenshot evidence not available</p>\'">' +
+                '<p class="ddx-muted ddx-small" style="margin-top:10px;">Screenshot evidence (analyze ' +
+                OSINT.esc(p.analyze_status || 'failed') + ')</p>'
+            );
+        } else if (p.profile_image) {
+            OSINT.api('/api/images/' + encodeURIComponent(session) + '/resolve?url=' + encodeURIComponent(p.profile_image))
+                .then(function (res) {
+                    if (res.exists) {
+                        $('#imageBody').html(
+                            '<img src="/api/images/' + encodeURIComponent(session) + '/' + encodeURIComponent(res.filename) +
+                            '" alt="profile image" style="max-width:200px; border-radius:14px;" onerror="this.outerHTML=\'<p class=ddx-muted>Image not available</p>\'">' +
+                            '<p class="ddx-muted ddx-small" style="margin-top:10px;">' + OSINT.esc(OSINT.shorten(p.profile_image, 60)) + '</p>'
+                        );
+                    } else {
+                        $('#imageBody').html('<p class="ddx-muted">Image not downloaded for this profile.</p>');
+                    }
+                })
+                .catch(function () {
+                    $('#imageBody').html('<p class="ddx-muted">Image not available.</p>');
+                });
+        } else {
+            $('#imageBody').html('<p class="ddx-muted">No profile image.</p>');
+        }
+
+        $('#ocrBody').text(p.ocr_text || '(no OCR text)');
+        $('#jsonBody').text(JSON.stringify(p, null, 2));
+    }).catch(function () {
+        $('#detailBody').html(
+            '<p>Session/report not found. It may have been deleted or the scan is still running. ' +
+            '<a href="/sessions">Open Sessions</a></p>'
+        );
+    });
+});
+</script>
+{% endblock %}

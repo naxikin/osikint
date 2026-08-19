@@ -1,0 +1,22 @@
+platforms:
+  instagram:
+    domain: instagram.com
+    enabled: true
+  facebook:
+    domain: facebook.com
+    enabled: true
+  x:
+    domain: x.com
+    enabled: true
+  tiktok:
+    domain: tiktok.com
+    enabled: true
+  github:
+    domain: github.com
+    enabled: true
+  linkedin:
+    domain: linkedin.com
+    enabled: true
+  gitlab:
+    domain: gitlab.com
+    enabled: true

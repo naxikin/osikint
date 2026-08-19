@@ -1,0 +1,11 @@
+# Dashboard users (passwords MUST be hashes, never plaintext)
+#
+# Generate a hash with:
+#   python -m dashboard.auth hash "your-password"
+#
+# Copy this file to users.yaml (users.yaml is gitignored).
+users:
+  - username: admin
+    password_hash: ""
+  - username: analyst
+    password_hash: ""

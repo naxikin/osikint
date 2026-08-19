@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% set active_page = 'profiles' %}
+{% block title %}Profiles - OSINT Sosmed{% endblock %}
+{% block page_header %}Profiles{% endblock %}
+
+{% block content %}
+<div class="ddx-grid">
+    <div class="ddx-col-12">
+        <div class="ddx-card">
+            <div class="ddx-card-header">
+                <h5 class="ddx-card-title">Profile Results</h5>
+            </div>
+
+            <div class="ddx-grid" style="gap:14px; margin-bottom:16px;">
+                <div class="ddx-col-3">
+                    <select class="ddx-input ddx-select" id="sessionSelect">
+                        <option value="">Select session...</option>
+                    </select>
+                </div>
+                <div class="ddx-col-3">
+                    <select class="ddx-input ddx-select" id="platformFilter">
+                        <option value="">All platforms</option>
+                    </select>
+                </div>
+                <div class="ddx-col-3">
+                    <select class="ddx-input ddx-select" id="riskFilter">
+                        <option value="">All risk levels</option>
+                        <option value="none">None</option>
+                        <option value="low">Low</option>
+                        <option value="medium">Medium</option>
+                        <option value="high">High</option>
+                    </select>
+                </div>
+                <div class="ddx-col-3">
+                    <input class="ddx-input" type="text" id="searchBox" placeholder="Search url / names / OCR...">
+                </div>
+            </div>
+
+            <label class="ddx-check">
+                <input type="checkbox" id="matchedOnly"> keyword detected only
+            </label>
+
+            <div class="ddx-mb-2" id="exportBar" style="display:none;">
+                <a class="ddx-btn ddx-btn-sm" href="#" id="reportLink" target="_blank">
+                    <i data-feather="printer"></i> Printable Report</a>
+                <a class="ddx-btn ddx-btn-outline ddx-btn-sm" href="#" id="jsonLink">
+                    <i data-feather="download"></i> JSON</a>
+                <a class="ddx-btn ddx-btn-outline ddx-btn-sm" href="#" id="csvLink">
+                    <i data-feather="file-text"></i> CSV</a>
+            </div>
+
+            <div class="ddx-table-wrap" style="max-height:62vh;">
+                <table class="ddx-table">
+                    <thead>
+                        <tr>
+                            <th>URL</th><th>Platform</th><th>Account Names</th>
+                            <th>Keyword</th><th>Image Hash</th><th>OCR</th>
+                            <th>Reverse</th><th>Status</th><th>Risk</th>
+                        </tr>
+                    </thead>
+                    <tbody id="profileRows"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(function () {
+    var session = OSINT.qs('session') || '';
+    var report = null;
+    var retries = 0;
+
+    function riskLevel(score) {
+        if (score <= 0) return 'none';
+        if (score <= 5) return 'low';
+        if (score <= 10) return 'medium';
+        return 'high';
+    }
+
+    function render() {
+        if (!report) return;
+        var profiles = report.profiles || [];
+        var q = $('#searchBox').val().toLowerCase();
+        var pf = $('#platformFilter').val();
+        var rf = $('#riskFilter').val();
+        var matched = $('#matchedOnly').is(':checked');
+
+        var rows = [];
+        profiles.forEach(function (p, index) {
+            var level = riskLevel(p.risk_score || 0);
+            if (pf && (p.platform || 'unknown') !== pf) return;
+            if (rf && level !== rf) return;
+            if (matched && !p.keyword_detected) return;
+            if (q) {
+                var hay = ((p.url || '') + ' ' + (p.account_names || []).join(' ')
+                    + ' ' + (p.ocr_text || '')).toLowerCase();
+                if (hay.indexOf(q) === -1) return;
+            }
+            rows.push('<tr>' +
+                '<td><a href="/profiles/detail?session=' + encodeURIComponent(report.scan_id) +
+                '&index=' + index + '">' + OSINT.esc(OSINT.shorten(p.url, 42)) + '</a></td>' +
+                '<td>' + OSINT.esc(p.platform || 'unknown') + '</td>' +
+                '<td>' + OSINT.esc(OSINT.shorten((p.account_names || []).join(', '), 46)) + '</td>' +
+                '<td>' + (p.keyword_detected ? 'yes' : 'no') + '</td>' +
+                '<td>' + OSINT.esc(OSINT.shorten(p.image_hash || '-', 12)) + '</td>' +
+                '<td>' + (p.ocr_text ? 'yes' : '-') + '</td>' +
+                '<td>' + (p.reverse_image_match ? 'yes' : 'no') + '</td>' +
+                '<td>' + ((p.analyze_status && p.analyze_status !== 'analyzed') ?
+                    '<span class="ddx-badge badge-failed" title="' + OSINT.esc(p.analyze_error || '') + '">' + OSINT.esc(p.analyze_status) + '</span>' +
+                    (p.evidence_image ?
+                        ' <a href="/api/images/' + encodeURIComponent(report.scan_id) + '/' + encodeURIComponent(p.evidence_image) +
+                        '" target="_blank" title="Image evidence"><i data-feather="camera"></i></a>' : '')
+                    : '<span class="ddx-badge badge-completed">analyzed</span>') + '</td>' +
+                '<td>' + OSINT.riskBadge(level, p.risk_score) + '</td>' +
+                '</tr>');
+        });
+        $('#profileRows').html(rows.join('') ||
+            '<tr><td colspan="9" class="ddx-center" style="padding:28px;">No profiles match.</td></tr>');
+    }
+
+    function loadSessions() {
+        OSINT.api('/api/sessions').then(function (data) {
+            var options = (data.sessions || []).map(function (s) {
+                var sel = s.scan_id === session ? ' selected' : '';
+                return '<option value="' + OSINT.esc(s.scan_id) + '"' + sel + '>' +
+                    OSINT.esc(s.scan_id + ' - ' + (s.target || '-')) + '</option>';
+            });
+            $('#sessionSelect').html('<option value="">Select session...</option>' + options.join(''));
+            if (session) loadReport(session);
+        });
+    }
+
+    function loadReport(scanId) {
+        session = scanId;
+        $('#exportBar').show();
+        $('#reportLink').attr('href', '/reports/' + encodeURIComponent(scanId));
+        $('#jsonLink').attr('href', '/api/reports/' + encodeURIComponent(scanId) + '/download');
+        $('#csvLink').attr('href', '/api/reports/' + encodeURIComponent(scanId) + '/export.csv');
+        OSINT.api('/api/reports/' + encodeURIComponent(scanId)).then(function (data) {
+            retries = 0;
+            report = data;
+            var platforms = {};
+            (data.profiles || []).forEach(function (p) {
+                platforms[p.platform || 'unknown'] = true;
+            });
+            var opts = ['<option value="">All platforms</option>'];
+            Object.keys(platforms).sort().forEach(function (k) {
+                opts.push('<option value="' + OSINT.esc(k) + '">' + OSINT.esc(k) + '</option>');
+            });
+            $('#platformFilter').html(opts.join(''));
+            render();
+        }).catch(function (err) {
+            if (err.status === 404 && retries < 8) {
+                retries++;
+                var msg = 'Report not ready yet for this session (scan may still be running). Retrying ' + retries + '/8...';
+                $('#profileRows').html('<tr><td colspan="9" class="ddx-center" style="padding:28px;">' + OSINT.esc(msg) + '</td></tr>');
+                setTimeout(function () { loadReport(scanId); }, 3000);
+                return;
+            }
+            $('#profileRows').html(
+                '<tr><td colspan="9" class="ddx-center" style="padding:28px;">Session not found. It may have been deleted. ' +
+                '<a href="/sessions">Open Sessions</a></td></tr>'
+            );
+        });
+    }
+
+    $('#sessionSelect').on('change', function () {
+        var v = $(this).val();
+        if (v) loadReport(v);
+    });
+    $('#platformFilter, #riskFilter, #matchedOnly').on('change', render);
+    $('#searchBox').on('input', render);
+
+    loadSessions();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+{% set active_page = 'new_scan' %}
+{% block title %}New Scan - OSINT Sosmed{% endblock %}
+{% block page_header %}New Scan{% endblock %}
+
+{% block content %}
+<div class="ddx-grid">
+    <div class="ddx-col-6">
+        <div class="ddx-card">
+            <div class="ddx-card-header">
+                <h5 class="ddx-card-title">Scan Configuration</h5>
+            </div>
+            <form id="scanForm">
+                <div class="ddx-mb-2">
+                    <label class="ddx-label" for="targetInput">Target keyword</label>
+                    <input type="text" class="ddx-input" id="targetInput" placeholder="example" required>
+                </div>
+                <div class="ddx-mb-2">
+                    <label class="ddx-label">Platforms</label>
+                    <div id="platformChecks"></div>
+                </div>
+                <div class="ddx-form-grid">
+                    <div>
+                        <label class="ddx-label" for="regionInput">Region</label>
+                        <input type="text" class="ddx-input" id="regionInput" value="id-id">
+                    </div>
+                    <div>
+                        <label class="ddx-label" for="maxResultsInput">Max results per query</label>
+                        <input type="number" class="ddx-input" id="maxResultsInput" value="30" min="1" max="200">
+                    </div>
+                </div>
+                <div class="ddx-mt-2">
+                    <label class="ddx-check">
+                        <input type="checkbox" id="ocrToggle" checked> OCR analysis
+                    </label>
+                    <label class="ddx-check">
+                        <input type="checkbox" id="leetToggle" checked> Leetspeak variant queries
+                    </label>
+                </div>
+                <button type="submit" class="ddx-btn" id="startButton">
+                    <i data-feather="search"></i> Start Scan
+                </button>
+                <div class="ddx-danger-text ddx-mt-2" id="formError"></div>
+            </form>
+        </div>
+    </div>
+    <div class="ddx-col-6">
+        <div class="ddx-card">
+            <div class="ddx-card-header">
+                <h5 class="ddx-card-title">Live Progress</h5>
+            </div>
+            <div id="progressPanel">
+                <p id="progressState" class="ddx-muted">No active scan.</p>
+                <div class="ddx-progress">
+                    <div class="ddx-progress-bar" id="progressBar" style="width:0%">0%</div>
+                </div>
+                <div class="ddx-table-wrap">
+                    <table class="ddx-table">
+                        <tbody>
+                            <tr><th style="width:160px;">Discovered</th><td id="pDiscovered">-</td></tr>
+                            <tr><th>Analyzed</th><td id="pAnalyzed">-</td></tr>
+                            <tr><th>Matched</th><td id="pMatched">-</td></tr>
+                            <tr><th>Current URL</th><td id="pUrl">-</td></tr>
+                            <tr><th>Scan ID</th><td id="pScanId">-</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="ddx-mt-2">
+                    <button class="ddx-btn ddx-btn-danger" id="stopButton" style="display:none;">
+                        <i data-feather="stop-circle"></i> Stop Scan
+                    </button>
+                    <a class="ddx-btn ddx-btn-success" id="resultLink" style="display:none;" href="#">View Results</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(function () {
+    var activeHandle = null;
+    var pollTimer = null;
+
+    OSINT.api('/api/config').then(function (cfg) {
+        var checks = (cfg.platforms || []).map(function (p) {
+            return '<label class="ddx-check">' +
+                '<input type="checkbox" value="' + OSINT.esc(p) +
+                '" id="plat_' + OSINT.esc(p) + '" checked> ' + OSINT.esc(p) + '</label>';
+        });
+        $('#platformChecks').html(checks.join(''));
+        $('#regionInput').val(cfg.defaults.region);
+        $('#maxResultsInput').val(cfg.defaults.max_results);
+        $('#ocrToggle').prop('checked', cfg.defaults.ocr_enabled);
+        $('#leetToggle').prop('checked', cfg.defaults.leet_variants);
+    });
+
+    $('#scanForm').on('submit', function (e) {
+        e.preventDefault();
+        $('#formError').text('');
+        var platforms = [];
+        $('#platformChecks input:checked').each(function () {
+            platforms.push($(this).val());
+        });
+        var payload = {
+            target: $('#targetInput').val(),
+            platforms: platforms,
+            region: $('#regionInput').val(),
+            max_results: parseInt($('#maxResultsInput').val(), 10),
+            ocr_enabled: $('#ocrToggle').is(':checked'),
+            leet_variants: $('#leetToggle').is(':checked')
+        };
+        OSINT.api('/api/scans', {method: 'POST', body: JSON.stringify(payload)})
+            .then(function (data) {
+                activeHandle = data.scan_id;
+                $('#startButton').prop('disabled', true);
+                $('#stopButton').show();
+                poll();
+            })
+            .catch(function (err) {
+                $('#formError').text(err.message || 'Failed to start scan.');
+            });
+    });
+
+    $('#stopButton').on('click', function () {
+        if (!activeHandle) return;
+        OSINT.api('/api/scans/' + activeHandle + '/stop', {method: 'POST'}).then(function () {
+            $('#progressState').text('Stopping...');
+        });
+    });
+
+    function poll() {
+        if (!activeHandle) return;
+        OSINT.api('/api/scans/' + activeHandle).then(function (s) {
+            $('#progressState').html(OSINT.stateBadge((s.status && s.status.state) || 'running'));
+            var total = (s.status && s.status.discovered) || 0;
+            var analyzed = (s.status && s.status.analyzed) || 0;
+            var matched = (s.status && s.status.matched) || 0;
+            $('#pDiscovered').text(total);
+            $('#pAnalyzed').text(analyzed);
+            $('#pMatched').text(matched);
+            $('#pUrl').text(OSINT.esc(OSINT.shorten((s.status && s.status.current_url) || '-', 60)));
+            $('#pScanId').text(OSINT.esc((s.status && s.status.scan_id) || activeHandle));
+
+            var pct = total > 0 ? Math.round(analyzed / total * 100) : 0;
+            $('#progressBar').css('width', pct + '%').text(pct + '%');
+
+            var state = (s.status && s.status.state) || 'running';
+            if (state === 'running' || state === 'queued') {
+                pollTimer = setTimeout(poll, 2000);
+            } else {
+                $('#stopButton').hide();
+                $('#startButton').prop('disabled', false);
+                var scanId = s.status && s.status.scan_id;
+                if (scanId) {
+                    $('#resultLink').attr('href', '/profiles?session=' + encodeURIComponent(scanId)).show();
+                }
+            }
+        }).catch(function () {
+            pollTimer = setTimeout(poll, 3000);
+        });
+    }
+
+    OSINT.api('/api/scans').then(function (data) {
+        var running = (data.scans || []).filter(function (s) {
+            return s.is_running;
+        });
+        if (running.length) {
+            activeHandle = running[0].handle;
+            $('#startButton').prop('disabled', true);
+            $('#stopButton').show();
+            poll();
+        }
+    });
+});
+</script>
+{% endblock %}

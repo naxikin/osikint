@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <title>Login - OSINT Sosmed</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <link rel="icon" href="{{ url_for('static', filename='assets/images/logo.png') }}" type="image/png" />
+    <link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@400;600;700&family=Mona+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashdarkx.css') }}" />
+</head>
+<body>
+    <div class="ddx-auth">
+        <div class="ddx-auth-card">
+            <div class="ddx-auth-brand">
+                <img src="{{ url_for('static', filename='assets/images/logo.png') }}" alt="logo" />
+                <h1>OSINT Sosmed</h1>
+                <p>Social Media OSINT Dashboard</p>
+            </div>
+
+            {% if error %}
+            <div class="ddx-alert ddx-alert-danger" role="alert">{{ error }}</div>
+            {% endif %}
+
+            <form action="{{ url_for('login_page', next=request.args.get('next')) if request.args.get('next') else url_for('login_page') }}" method="post">
+                <div class="ddx-mb-2">
+                    <label class="ddx-label" for="username">Username</label>
+                    <input type="text" name="username" class="ddx-input" id="username" required autofocus />
+                </div>
+                <div class="ddx-mb-2">
+                    <label class="ddx-label" for="password">Password</label>
+                    <input type="password" name="password" class="ddx-input" id="password" required />
+                </div>
+                <button type="submit" class="ddx-btn">Login</button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

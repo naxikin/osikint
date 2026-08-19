@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% set active_page = 'sessions' %}
+{% block title %}Sessions - OSINT Sosmed{% endblock %}
+{% block page_header %}Sessions{% endblock %}
+
+{% block content %}
+<div class="ddx-grid">
+    <div class="ddx-col-12">
+        <div class="ddx-card">
+            <div class="ddx-card-header">
+                <h5 class="ddx-card-title">All Sessions</h5>
+                <button class="ddx-btn ddx-btn-danger ddx-btn-sm" id="clearAllButton" title="Delete all sessions">
+                    <i data-feather="trash-2"></i> Clear All Sessions
+                </button>
+            </div>
+            <div class="ddx-table-wrap" style="max-height:72vh;">
+                <table class="ddx-table">
+                    <thead>
+                        <tr>
+                            <th>Session</th><th>Target</th><th>State</th><th>Schema</th>
+                            <th>Started</th><th>Completed</th>
+                            <th>Disc</th><th>Analyzed</th><th>Matched</th><th>Connections</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sessionRows"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(function () {
+    function loadSessions() {
+        OSINT.api('/api/sessions').then(function (data) {
+            var rows = (data.sessions || []).map(function (s) {
+                return '<tr>' +
+                    '<td>' + OSINT.esc(s.scan_id) + '</td>' +
+                    '<td><b>' + OSINT.esc(s.target || '-') + '</b></td>' +
+                    '<td>' + OSINT.stateBadge(s.state) + '</td>' +
+                    '<td>' + OSINT.esc(s.schema_version) + '</td>' +
+                    '<td>' + OSINT.fmt(s.started_at) + '</td>' +
+                    '<td>' + OSINT.fmt(s.completed_at) + '</td>' +
+                    '<td>' + s.statistics.discovered + '</td>' +
+                    '<td>' + s.statistics.analyzed + '</td>' +
+                    '<td>' + s.statistics.matched + '</td>' +
+                    '<td>' + s.connections_count + '</td>' +
+                    '<td class="actions"><a href="/profiles?session=' + encodeURIComponent(s.scan_id) + '">Profiles</a>' +
+                    '<a href="/link-analysis?session=' + encodeURIComponent(s.scan_id) + '">Graph</a>' +
+                    '<a href="/reports/' + encodeURIComponent(s.scan_id) + '">Report</a>' +
+                    '<a href="/api/reports/' + encodeURIComponent(s.scan_id) + '/download">JSON</a>' +
+                    '<a href="/api/reports/' + encodeURIComponent(s.scan_id) + '/export.csv">CSV</a>' +
+                    '<a href="#" class="ddx-danger-text deleteSession" data-scan="' + OSINT.esc(s.scan_id) + '">Delete</a></td>' +
+                    '</tr>';
+            });
+            $('#sessionRows').html(rows.join('') ||
+                '<tr><td colspan="11" class="ddx-center" style="padding:28px;">No sessions yet. Run a scan from <a href="/new-scan">New Scan</a>.</td></tr>');
+        });
+    }
+
+    function deleteSession(scanId) {
+        if (!confirm('Delete session ' + scanId + '?\n\nThis permanently removes the report and images.')) {
+            return;
+        }
+        OSINT.api('/api/sessions/' + encodeURIComponent(scanId), {method: 'DELETE'})
+            .then(function () { loadSessions(); })
+            .catch(function (err) {
+                alert('Failed to delete: ' + (err.message || 'unknown error'));
+            });
+    }
+
+    $('#sessionRows').on('click', '.deleteSession', function (e) {
+        e.preventDefault();
+        deleteSession($(this).data('scan'));
+    });
+
+    $('#clearAllButton').on('click', function () {
+        if (!confirm('Delete ALL sessions?\n\nThis permanently removes every report and image.')) {
+            return;
+        }
+        OSINT.api('/api/sessions', {method: 'DELETE'})
+            .then(function (data) {
+                alert('Deleted ' + (data.deleted || []).length + ' sessions.');
+                loadSessions();
+            })
+            .catch(function (err) {
+                alert('Failed: ' + (err.message || 'unknown error'));
+            });
+    });
+
+    loadSessions();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,15 @@
+.git
+.gitignore
+__pycache__/
+*.pyc
+.venv/
+venv/
+output/
+product-admin-master/
+template/
+*.tmp
+.DS_Store
+.env
+.github/
+tests/
+node_modules/

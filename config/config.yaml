@@ -1,0 +1,58 @@
+# OSINT search configuration
+
+search:
+  region: id-id
+  max_results: 30
+  leet_variants: true
+  queries:
+    - '"{keyword}" site:{site}'
+    - "inurl:{keyword} site:{site}"
+    - 'intitle:"{keyword}" site:{site}'
+
+matching:
+  partial_ratio_threshold: 80
+  sequence_threshold: 80
+  fuzzy_threshold: 80
+
+browser:
+  headless: true
+  timeout: 60000
+  locale: en-US
+  viewport:
+    width: 1920
+    height: 1080
+  wait_until: networkidle
+  settle_seconds: 3
+
+collector:
+  http_first: true
+  min_html_length: 2000
+  http_timeout: 30
+
+image:
+  download: true
+  hash_algorithms: [average, sha256]
+  max_bytes: 10485760
+
+ocr:
+  enabled: true
+  engine: tesseract
+
+autosave:
+  enabled: true
+
+output:
+  directory: output
+
+privacy:
+  redact_sensitive_data: true
+  redact_email: false
+  redact_phone: false
+
+concurrency:
+  workers: 1
+
+dashboard:
+  auth:
+    enabled: true
+    username: admin
