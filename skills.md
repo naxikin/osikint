@@ -1,4 +1,4 @@
-# Social OSINT — OpenCode Skills
+# Social OSINT — Agentic Skills
 
 ## 1. Project Identity
 
