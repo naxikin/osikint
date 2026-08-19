@@ -214,7 +214,7 @@ def test_image_resolve(client):
 def test_report_page(client):
     res = client.get("/reports/session_20200101_000000")
     assert res.status_code == 200
-    assert b"OSINT Sosmed Report" in res.data
+    assert b"OSIKINT Report" in res.data
     assert b"malakaji" in res.data
 
     res = client.get("/reports/session_19990101_000000")

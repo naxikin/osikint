@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-    <title>{% block title %}OSINT Sosmed{% endblock %}</title>
+    <title>{% block title %}OSIKINT{% endblock %}</title>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
@@ -15,7 +15,7 @@
         <aside class="ddx-sidebar" id="sidebar">
             <div class="ddx-brand">
                 <img src="{{ url_for('static', filename='assets/images/logo.png') }}" alt="logo" />
-                <span class="ddx-brand-title">OSINT Sosmed</span>
+                <span class="ddx-brand-title">OSIKINT</span>
             </div>
             <div class="ddx-search">
                 <input type="search" placeholder="Search for..." />
@@ -70,7 +70,7 @@
                             <div class="ddx-dropdown-menu">
                                 <div class="ddx-dropdown-header">
                                     <div class="name">{{ session.get('user') }}</div>
-                                    <div class="role">OSINT Sosmed</div>
+                                    <div class="role">OSIKINT</div>
                                 </div>
                                 <a href="/change-password">
                                     <i data-feather="key"></i> Change Password
@@ -92,7 +92,7 @@
                 {% block content %}{% endblock %}
             </div>
             <footer class="ddx-footer">
-                OSINT Sosmed &middot; lawful public-information analysis only
+                OSIKINT &middot; lawful public-information analysis only
             </footer>
         </main>
         <!-- [ Main ] end -->

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% set active_page = 'sessions' %}
-{% block title %}Report {{ summary.scan_id if summary else '' }} - OSINT Sosmed{% endblock %}
+{% block title %}Report {{ summary.scan_id if summary else '' }} - OSIKINT{% endblock %}
 {% block page_header %}Report{% endblock %}
 
 {% block content %}
@@ -9,7 +9,7 @@
         <div class="ddx-card">
             <div class="ddx-card-header">
                 <div>
-                    <h5 class="ddx-card-title" style="font-size:1.15rem;">OSINT Sosmed Report</h5>
+                    <h5 class="ddx-card-title" style="font-size:1.15rem;">OSIKINT Report</h5>
                     {% if summary %}
                     <p class="ddx-muted ddx-small" style="margin:6px 0 0;">
                         Target: <b>{{ summary.target or '-' }}</b> &middot;
