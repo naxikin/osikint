@@ -1,4 +1,4 @@
-# Social OSINT — Agentic Skills
+# Social OSINT — Agentic AI Skills
 
 ## 1. Project Identity
 
@@ -1246,7 +1246,7 @@ When adding concurrency:
 
 # 39. Code Modification Protocol
 
-When OpenCode receives a development task:
+When Agentic AI receives a development task:
 
 ## Step 1
 
@@ -1314,7 +1314,7 @@ Never fix a bug without a regression test when practical.
 
 # 41. Known Issues To Inspect
 
-OpenCode must inspect the platform list carefully.
+Agentic AI must inspect the platform list carefully.
 
 The source contains:
 
