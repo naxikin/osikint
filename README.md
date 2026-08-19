@@ -124,7 +124,7 @@ image_hash, ocr_text, reverse_image_match, risk_score`.
 {
   "schema_version": "1.0",
   "scan_id": "session_20260818_161910",
-  "target": "malakaji",
+  "target": "anugan",
   "started_at": "", "completed_at": "",
   "statistics": {"discovered": 0, "analyzed": 0, "matched": 0},
   "profiles": [],
