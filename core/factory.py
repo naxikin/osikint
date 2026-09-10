@@ -17,6 +17,7 @@ from correlation.entity_linker import EntityLinker
 from correlation.image_matcher import ImageMatcher
 from correlation.username_matcher import UsernameMatcher
 from discovery.deduplicator import deduplicate
+from discovery.repo_search import GitHubRepoSearch, GitLabRepoSearch
 from discovery.search_engine import DDGSSearchEngine, search_social_accounts
 from discovery.username_checker import UsernameChecker
 from scoring.risk_engine import RiskEngine
@@ -57,12 +58,31 @@ def build_scanner(config, platform_filter=None):
         timeout=collector_config.get("http_timeout", 30),
     )
 
+    repo_search_enabled = bool(search_config.get("repo_search", False))
+    repo_search_limit = search_config.get("repo_search_limit", 10)
+    repo_searchers = []
+    if "github" in platform_domains:
+        repo_searchers.append(GitHubRepoSearch(
+            headers=HEADERS,
+            timeout=collector_config.get("http_timeout", 30),
+        ))
+    if "gitlab" in platform_domains:
+        repo_searchers.append(GitLabRepoSearch(
+            headers=HEADERS,
+            timeout=collector_config.get("http_timeout", 30),
+        ))
+
     def discovery_fn(target):
         discovered = search_discovery_fn(target)
         if username_check_enabled:
             discovered = discovered + username_checker.check(
                 target, platform_specs
             )
+        if repo_search_enabled:
+            for searcher in repo_searchers:
+                discovered = discovered + searcher.search(
+                    target, limit=repo_search_limit
+                )
         return deduplicate(discovered)
 
     matcher = UsernameMatcher(

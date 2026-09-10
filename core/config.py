@@ -20,6 +20,7 @@ ENV_OVERRIDES = {
     "OSINT_MAX_RESULTS": (("search", "max_results"), int),
     "OSINT_LEET_VARIANTS": (("search", "leet_variants"), _bool),
     "OSINT_USERNAME_CHECK": (("search", "username_check"), _bool),
+    "OSINT_REPO_SEARCH": (("search", "repo_search"), _bool),
     "OSINT_OCR_ENABLED": (("ocr", "enabled"), _bool),
     "OSINT_OUTPUT_DIR": (("output", "directory"), str),
     "OSINT_HEADLESS": (("browser", "headless"), _bool),
