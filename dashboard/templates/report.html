@@ -42,45 +42,72 @@
                 {% endfor %}
             </div>
 
-            <h5 class="ddx-mt-2 ddx-mb-2" style="font-family:'Work Sans'; font-weight:600;">Profiles</h5>
-            <div class="ddx-table-wrap">
-                <table class="ddx-table">
-                    <thead>
-                        <tr>
-                            <th>URL</th><th>Platform</th><th>Account Names</th>
-                            <th>Keyword</th><th>Image Hash</th><th>OCR</th>
-                            <th>Reverse</th><th>Status</th><th>Risk</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for p in report.profiles %}
-                        <tr>
-                            <td style="word-break:break-all;">{{ p.url }}</td>
-                            <td>{{ p.platform or 'unknown' }}</td>
-                            <td>{{ (p.account_names or []) | join(', ') | truncate(80) }}</td>
-                            <td>{{ 'yes' if p.keyword_detected else 'no' }}</td>
-                            <td>{{ (p.image_hash or '-') | truncate(12) }}</td>
-                            <td>{{ 'yes' if p.ocr_text else '-' }}</td>
-                            <td>{{ 'yes' if p.reverse_image_match else 'no' }}</td>
-                            <td>
-                                {% if p.analyze_status and p.analyze_status != 'analyzed' %}
-                                {{ p.analyze_status }} ({{ p.analyze_error | truncate(60) }})
-                                {% else %}analyzed{% endif %}
-                            </td>
-                            <td style="color:{% if p.risk_score <= 0 %}#14ca74{% elif p.risk_score <= 5 %}#a3e635{% elif p.risk_score <= 10 %}#fdb52a{% else %}#ff5a65{% endif %}; font-weight:600;">
-                                {{ p.risk_score }}
-                            </td>
-                        </tr>
-                        {% else %}
-                        <tr><td colspan="9" class="ddx-center" style="padding:24px;">No profiles in this report.</td></tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+            <div class="ddx-grid ddx-mt-2" style="gap:14px;">
+                <div class="ddx-col-6">
+                    <div class="ddx-card" style="padding:16px;">
+                        <h5 style="font-family:'Work Sans'; font-weight:600; margin:0 0 10px;">Risk Distribution</h5>
+                        <div style="position:relative; height:220px;">
+                            <canvas id="riskChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="ddx-col-6">
+                    <div class="ddx-card" style="padding:16px;">
+                        <h5 style="font-family:'Work Sans'; font-weight:600; margin:0 0 10px;">Profiles per Platform</h5>
+                        <div style="position:relative; height:220px;">
+                            <canvas id="platformChart"></canvas>
+                        </div>
+                    </div>
+                </div>
             </div>
+
+            <h5 class="ddx-mt-2 ddx-mb-2" style="font-family:'Work Sans'; font-weight:600;">Profiles ({{ report.profiles | length }})</h5>
+            {% if report.profiles %}
+            <div class="ddx-profile-list">
+                {% for p in report.profiles %}
+                {% set risk_class = 'badge-none' if p.risk_score <= 0 else ('badge-low' if p.risk_score <= 5 else ('badge-medium' if p.risk_score <= 10 else 'badge-high')) %}
+                <div class="ddx-profile-card">
+                    <div class="ddx-profile-head">
+                        <div class="ddx-profile-badges">
+                            <span class="ddx-badge ddx-badge-platform">{{ p.platform or 'unknown' }}</span>
+                            {% if p.analyze_status and p.analyze_status != 'analyzed' %}
+                            <span class="ddx-badge badge-failed">{{ p.analyze_status }}</span>
+                            {% endif %}
+                            {% if p.keyword_detected %}
+                            <span class="ddx-badge badge-medium">keyword match</span>
+                            {% endif %}
+                            {% if p.reverse_image_match %}
+                            <span class="ddx-badge badge-high">reverse image match</span>
+                            {% endif %}
+                            {% if p.ocr_text %}
+                            <span class="ddx-badge badge-low">OCR text found</span>
+                            {% endif %}
+                        </div>
+                        <span class="ddx-badge {{ risk_class }}">risk {{ p.risk_score }}</span>
+                    </div>
+                    <div class="ddx-profile-url">{{ p.url }}</div>
+                    {% if p.account_names %}
+                    <div class="ddx-profile-names"><b>Names:</b> {{ p.account_names | join(' · ') }}</div>
+                    {% endif %}
+                    <div class="ddx-profile-meta ddx-muted ddx-small">
+                        Image hash: {{ (p.image_hash or '-') | truncate(20) }}
+                        {%- if p.analyze_status == 'failed' and p.analyze_error %} &middot; {{ p.analyze_error | truncate(140) }}{% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="ddx-muted ddx-center" style="padding:24px;">No profiles in this report.</p>
+            {% endif %}
 
             <h5 class="ddx-mt-2 ddx-mb-2" style="font-family:'Work Sans'; font-weight:600;">Connections ({{ report.connections | length }})</h5>
             <div class="ddx-table-wrap">
-                <table class="ddx-table">
+                <table class="ddx-table ddx-table-fixed">
+                    <colgroup>
+                        <col style="width:14%;"><col style="width:23%;">
+                        <col style="width:23%;"><col style="width:8%;">
+                        <col style="width:10%;"><col style="width:22%;">
+                    </colgroup>
                     <thead>
                         <tr>
                             <th>Signal</th><th>Source</th><th>Target</th>
@@ -90,12 +117,12 @@
                     <tbody>
                         {% for c in report.connections %}
                         <tr>
-                            <td>{{ c.signal }}</td>
-                            <td style="word-break:break-all;">{{ c.source }}</td>
-                            <td style="word-break:break-all;">{{ c.target }}</td>
+                            <td class="ddx-wrap">{{ c.signal }}</td>
+                            <td class="ddx-wrap">{{ c.source }}</td>
+                            <td class="ddx-wrap">{{ c.target }}</td>
                             <td>{{ c.score }}</td>
                             <td>{{ c.confidence }}</td>
-                            <td>{{ c.evidence | truncate(60) }}</td>
+                            <td class="ddx-wrap">{{ c.evidence | truncate(60) }}</td>
                         </tr>
                         {% else %}
                         <tr><td colspan="6" class="ddx-center" style="padding:24px;">No connections.</td></tr>
@@ -112,4 +139,116 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+{% if summary %}
+<script>
+$(function () {
+    var riskDist = {{ summary.risk_distribution | tojson }};
+    var platforms = {{ summary.platforms | tojson }};
+
+    var riskColors = {none: '#14ca74', low: '#a3e635', medium: '#fdb52a', high: '#ff5a65'};
+    var riskLabels = ['none', 'low', 'medium', 'high'].filter(function (k) {
+        return riskDist[k] > 0;
+    });
+
+    var platformColors = {
+        instagram: '#e1306c', facebook: '#1877f2', x: '#7e89ac',
+        tiktok: '#25f4ee', github: '#8b949e', linkedin: '#0a66c2',
+        gitlab: '#fc6d26', unknown: '#64748b'
+    };
+    var platformLabels = Object.keys(platforms);
+
+    Chart.defaults.global.defaultFontColor = '#aeb9e1';
+    Chart.defaults.global.defaultFontFamily = "'Mona Sans', 'Work Sans', sans-serif";
+
+    var riskChart = null;
+    if (riskLabels.length) {
+        riskChart = new Chart(document.getElementById('riskChart').getContext('2d'), {
+            type: 'doughnut',
+            data: {
+                labels: riskLabels.map(function (k) { return k.charAt(0).toUpperCase() + k.slice(1); }),
+                datasets: [{
+                    data: riskLabels.map(function (k) { return riskDist[k]; }),
+                    backgroundColor: riskLabels.map(function (k) { return riskColors[k]; }),
+                    borderColor: '#0b1739',
+                    borderWidth: 3
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutoutPercentage: 60,
+                legend: {
+                    position: 'bottom',
+                    labels: {boxWidth: 12, padding: 12, fontColor: '#aeb9e1', fontSize: 11}
+                }
+            }
+        });
+    }
+
+    var platformChart = null;
+    if (platformLabels.length) {
+        platformChart = new Chart(document.getElementById('platformChart').getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: platformLabels,
+                datasets: [{
+                    label: 'Profiles',
+                    data: platformLabels.map(function (k) { return platforms[k]; }),
+                    backgroundColor: platformLabels.map(function (k) {
+                        return platformColors[k] || platformColors.unknown;
+                    }),
+                    barPercentage: 0.6,
+                    categoryPercentage: 0.8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                legend: {display: false},
+                scales: {
+                    yAxes: [{
+                        ticks: {beginAtZero: true, precision: 0, fontColor: '#aeb9e1', fontSize: 11},
+                        gridLines: {color: 'rgba(209,219,249,0.08)'}
+                    }],
+                    xAxes: [{
+                        ticks: {fontColor: '#aeb9e1', fontSize: 11, autoSkip: false},
+                        gridLines: {display: false}
+                    }]
+                }
+            }
+        });
+    }
+
+    // Chart.js 2.x resizes on window "resize" only - it never sees the
+    // layout change triggered by @media print (sidebar hidden, card
+    // background flipped to white), so without this the chart keeps
+    // its light-on-dark screen colors and can look wrong in the PDF.
+    function setPrintColors(isPrint) {
+        var textColor = isPrint ? '#000000' : '#aeb9e1';
+        var gridColor = isPrint ? '#e0e0e0' : 'rgba(209,219,249,0.08)';
+        var borderColor = isPrint ? '#ffffff' : '#0b1739';
+
+        if (riskChart) {
+            riskChart.options.legend.labels.fontColor = textColor;
+            riskChart.data.datasets[0].borderColor = borderColor;
+            riskChart.update();
+            riskChart.resize();
+        }
+        if (platformChart) {
+            platformChart.options.scales.xAxes[0].ticks.fontColor = textColor;
+            platformChart.options.scales.yAxes[0].ticks.fontColor = textColor;
+            platformChart.options.scales.yAxes[0].gridLines.color = gridColor;
+            platformChart.update();
+            platformChart.resize();
+        }
+    }
+
+    window.addEventListener('beforeprint', function () { setPrintColors(true); });
+    window.addEventListener('afterprint', function () { setPrintColors(false); });
+});
+</script>
+{% endif %}
 {% endblock %}

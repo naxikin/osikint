@@ -341,6 +341,13 @@ a:hover { text-decoration: underline; }
 
 .ddx-table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
 
+/* fixed column widths (set via <colgroup>) so a long URL/account-name
+   cell wraps within its own column instead of stretching the whole
+   table wider than its container - the report tables need this since
+   print has no horizontal scroll to fall back on */
+.ddx-table-fixed { table-layout: fixed; }
+.ddx-wrap { word-break: break-word; overflow-wrap: anywhere; }
+
 .ddx-table th {
   text-align: left;
   padding: 12px 16px;
@@ -353,6 +360,16 @@ a:hover { text-decoration: underline; }
   white-space: nowrap;
   background: rgba(209, 219, 249, 0.04);
 }
+
+/* the nowrap above is fine for the site's other, auto-layout tables
+   (short headers like "State"/"Session" fit on one line). A
+   fixed-layout table's narrow columns can't grow to fit a nowrap
+   header like "IMAGE HASH" or "ACCOUNT NAMES" - the text overflows
+   its cell and visually overlaps the next header, which is what
+   garbled the report table headers. Let these headers wrap instead.
+   (Same specificity as .ddx-table th above - this must stay AFTER it
+   in source order to win the cascade.) */
+.ddx-table-fixed th { white-space: normal; word-break: break-word; }
 
 .ddx-table td {
   padding: 12px 16px;
@@ -386,6 +403,67 @@ a:hover { text-decoration: underline; }
 .badge-failed { background: rgba(255, 90, 101, 0.15); color: var(--danger); }
 .badge-stopped { background: rgba(253, 181, 42, 0.15); color: var(--warning); }
 .badge-queued { background: rgba(126, 137, 172, 0.2); color: var(--text-soft); }
+
+.ddx-badge-platform {
+  background: rgba(209, 219, 249, 0.12);
+  color: var(--text-soft);
+  text-transform: capitalize;
+}
+
+/* ---------- report profile cards ---------- */
+/* One card per profile instead of a cramped multi-column table - a
+   9-column table (URL, platform, names, keyword, hash, OCR, reverse,
+   status, risk) has no room to breathe on a printed page, especially
+   once a failed profile's error message needs to show. Cards stack
+   naturally and each one is small enough to stay on one page. */
+
+.ddx-profile-list { display: flex; flex-direction: column; gap: 10px; }
+
+.ddx-profile-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  background: rgba(209, 219, 249, 0.03);
+}
+
+.ddx-profile-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.ddx-profile-badges { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.ddx-profile-url {
+  font-size: 0.86rem;
+  font-weight: 500;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  margin-bottom: 6px;
+}
+
+.ddx-profile-names {
+  font-size: 0.84rem;
+  color: var(--text-soft);
+  margin-bottom: 4px;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.ddx-profile-meta { word-break: break-word; overflow-wrap: anywhere; }
+
+@media print {
+  .ddx-profile-card {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    border-color: #ccc;
+    background: #fff;
+  }
+  .ddx-badge-platform { background: transparent; border: 1px solid #999; color: #000; }
+}
 
 /* ---------- forms ---------- */
 
@@ -525,10 +603,41 @@ a:hover { text-decoration: underline; }
 /* ---------- print ---------- */
 
 @media print {
+  @page { margin: 12mm; }
+
   .ddx-sidebar, .ddx-topbar, .ddx-footer, .ddx-menu-btn, .no-print { display: none !important; }
   body, .ddx-card { background: #fff !important; color: #000 !important; box-shadow: none; }
   .ddx-main { margin: 0 !important; }
   .ddx-content { padding: 0 !important; }
+
+  /* cards lose their shadow above, so give them a plain border instead -
+     otherwise stacked sections have no visible separation on paper.
+     No break-inside:avoid here - some cards (the report card itself)
+     legitimately hold a table spanning many pages, and forcing that
+     to stay on one page is exactly what causes broken pagination. */
+  .ddx-card { border: 1px solid #ccc !important; }
+
+  /* stat tiles: 4-per-row (grid-column: span 3) wraps labels like
+     "Keyword Matched" awkwardly on a printed page's narrower width -
+     drop to 2-per-row and keep each tile intact across a page break */
+  .ddx-grid .ddx-col-3 { grid-column: span 6; }
+  .ddx-grid .ddx-col-3 .ddx-card { break-inside: avoid; page-break-inside: avoid; }
+
+  .ddx-muted, .ddx-stat-label { color: #555 !important; }
+
+  /* low-opacity tinted pill backgrounds (designed for a dark card) are
+     nearly invisible on white paper - show an outline instead */
+  .ddx-badge { background: transparent !important; border: 1px solid currentColor; }
+
+  /* section headings must not end up orphaned at the bottom of a page
+     with their table starting on the next one */
+  h5 { break-after: avoid; page-break-after: avoid; }
+
+  .ddx-table-wrap { overflow: visible !important; }
+  .ddx-table { font-size: 0.78rem; }
   .ddx-table th, .ddx-table td { color: #000 !important; border-color: #ccc !important; }
   .ddx-table th { background: #f2f2f2 !important; }
+  .ddx-table thead { display: table-header-group; }
+  .ddx-table tr { break-inside: avoid; page-break-inside: avoid; }
+  .ddx-table td { word-break: break-word; overflow-wrap: anywhere; }
 }
