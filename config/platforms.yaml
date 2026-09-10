@@ -2,21 +2,28 @@ platforms:
   instagram:
     domain: instagram.com
     enabled: true
+    profile_url_template: "https://instagram.com/{username}"
   facebook:
     domain: facebook.com
     enabled: true
+    profile_url_template: "https://facebook.com/{username}"
   x:
     domain: x.com
     enabled: true
+    profile_url_template: "https://x.com/{username}"
   tiktok:
     domain: tiktok.com
     enabled: true
+    profile_url_template: "https://tiktok.com/@{username}"
   github:
     domain: github.com
     enabled: true
+    profile_url_template: "https://github.com/{username}"
   linkedin:
     domain: linkedin.com
     enabled: true
+    profile_url_template: "https://linkedin.com/in/{username}"
   gitlab:
     domain: gitlab.com
     enabled: true
+    profile_url_template: "https://gitlab.com/{username}"

@@ -2,6 +2,7 @@
 
 from correlation.entity_linker import (
     SIGNAL_IMAGE_HASH,
+    SIGNAL_IMAGE_SIMILAR,
     SIGNAL_KEYWORD,
     SIGNAL_USERNAME,
     EntityLinker,
@@ -67,6 +68,55 @@ def test_image_hash_connection():
     ]
     assert len(image_edges) == 1
     assert image_edges[0].evidence == "abcd1234"
+
+
+def test_image_similarity_connection_from_near_duplicate_phash():
+    linker = EntityLinker()
+    profiles = [
+        _profile(
+            "https://a.example/u1",
+            image_analysis={"phash": "0000000000000000"},
+        ),
+        # 1-bit different pHash: same photo, resized/recompressed
+        _profile(
+            "https://b.example/u2",
+            image_analysis={"phash": "0000000000000001"},
+        ),
+        _profile(
+            "https://c.example/u3",
+            image_analysis={"phash": "ffffffffffffffff"},
+        ),
+    ]
+    connections = linker.build_connections(profiles, "kw", {})
+
+    similar_edges = [
+        c for c in connections if c.signal == SIGNAL_IMAGE_SIMILAR
+    ]
+    assert len(similar_edges) == 1
+    assert similar_edges[0].source == "https://a.example/u1"
+    assert similar_edges[0].target == "https://b.example/u2"
+
+
+def test_image_similarity_skips_exact_phash_match():
+    """Exact pHash matches are already covered by SIGNAL_IMAGE_HASH via
+    average_hash grouping - don't double-report them as similarity."""
+    linker = EntityLinker()
+    profiles = [
+        _profile(
+            "https://a.example/u1",
+            image_analysis={"phash": "abcd1234abcd1234"},
+        ),
+        _profile(
+            "https://b.example/u2",
+            image_analysis={"phash": "abcd1234abcd1234"},
+        ),
+    ]
+    connections = linker.build_connections(profiles, "kw", {})
+
+    similar_edges = [
+        c for c in connections if c.signal == SIGNAL_IMAGE_SIMILAR
+    ]
+    assert similar_edges == []
 
 
 def test_username_similarity_connection():

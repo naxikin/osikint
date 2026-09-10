@@ -5,6 +5,7 @@ import re
 
 from core.logger import get_logger
 from core.models import Connection
+from correlation.image_matcher import ImageMatcher
 from correlation.username_matcher import contains_keyword, sequence_similarity
 from utils.normalization import normalize_text
 
@@ -12,6 +13,7 @@ logger = get_logger("correlation")
 
 SIGNAL_KEYWORD = "keyword_match"
 SIGNAL_IMAGE_HASH = "image_hash"
+SIGNAL_IMAGE_SIMILAR = "image_similarity"
 SIGNAL_USERNAME = "username_similarity"
 SIGNAL_NAME_OVERLAP = "name_overlap"
 SIGNAL_OCR_OVERLAP = "ocr_overlap"
@@ -61,8 +63,13 @@ def extract_handles(account_names: list, url: str = "") -> list:
 
 
 class EntityLinker:
-    def __init__(self, sequence_threshold: float = 80.0):
+    def __init__(
+        self,
+        sequence_threshold: float = 80.0,
+        image_matcher: ImageMatcher = None,
+    ):
         self.sequence_threshold = sequence_threshold
+        self.image_matcher = image_matcher or ImageMatcher()
 
     def build_connections(
         self,
@@ -122,14 +129,44 @@ class EntityLinker:
                         )
                     )
 
+        urls = [p["url"] for p in profiles]
+
+        phash_map = {
+            p["url"]: p.get("image_analysis", {}).get("phash")
+            for p in profiles
+        }
+        for i in range(len(urls)):
+            for j in range(i + 1, len(urls)):
+                phash_a = phash_map[urls[i]]
+                phash_b = phash_map[urls[j]]
+                if not phash_a or not phash_b or phash_a == phash_b:
+                    # exact matches are already reported as
+                    # SIGNAL_IMAGE_HASH above via average_hash grouping
+                    continue
+
+                match = self.image_matcher.compare(
+                    phash_a, phash_b, method="phash"
+                )
+                if match.matched:
+                    connections.append(
+                        Connection(
+                            source=urls[i],
+                            target=urls[j],
+                            signal=SIGNAL_IMAGE_SIMILAR,
+                            score=match.similarity,
+                            confidence=_confidence(match.similarity),
+                            evidence=(
+                                f"phash_distance={match.distance}"
+                            ),
+                        )
+                    )
+
         handle_map = {
             profile["url"]: extract_handles(
                 profile.get("account_names", []), profile["url"]
             )
             for profile in profiles
         }
-
-        urls = [p["url"] for p in profiles]
         for i in range(len(urls)):
             for j in range(i + 1, len(urls)):
                 handles_a = handle_map[urls[i]]

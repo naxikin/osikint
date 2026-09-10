@@ -16,7 +16,9 @@ from collectors.playwright_client import (
 from correlation.entity_linker import EntityLinker
 from correlation.image_matcher import ImageMatcher
 from correlation.username_matcher import UsernameMatcher
+from discovery.deduplicator import deduplicate
 from discovery.search_engine import DDGSSearchEngine, search_social_accounts
+from discovery.username_checker import UsernameChecker
 from scoring.risk_engine import RiskEngine
 from storage.report_manager import ReportManager
 
@@ -39,12 +41,29 @@ def build_scanner(config, platform_filter=None):
         max_results=search_config.get("max_results", 30),
     )
 
-    discovery_fn = partial(
+    search_discovery_fn = partial(
         search_social_accounts,
         sites=sites,
         engine=engine,
         include_leet=bool(search_config.get("leet_variants", False)),
     )
+
+    username_check_enabled = bool(
+        search_config.get("username_check", False)
+    )
+    platform_specs = config.enabled_platform_specs(platform_filter)
+    username_checker = UsernameChecker(
+        headers=HEADERS,
+        timeout=collector_config.get("http_timeout", 30),
+    )
+
+    def discovery_fn(target):
+        discovered = search_discovery_fn(target)
+        if username_check_enabled:
+            discovered = discovered + username_checker.check(
+                target, platform_specs
+            )
+        return deduplicate(discovered)
 
     matcher = UsernameMatcher(
         thresholds={
@@ -111,10 +130,12 @@ def build_scanner(config, platform_filter=None):
             max_bytes=image_config.get("max_bytes", 10485760),
         ),
         platform_domains=platform_domains,
+        privacy_config=config.privacy,
     )
 
     entity_linker = EntityLinker(
         sequence_threshold=matching_config.get("sequence_threshold", 80),
+        image_matcher=ImageMatcher(distances=config.image_match_states),
     )
 
     output_config = config.output or {}

@@ -56,13 +56,15 @@ class ImageMatcher:
             return POSSIBLE_MATCH
         return NO_MATCH
 
-    def compare(self, hash_a: str, hash_b: str) -> ImageMatchResult:
+    def compare(
+        self, hash_a: str, hash_b: str, method: str = "ahash"
+    ) -> ImageMatchResult:
         distance = _hamming_distance_hex(hash_a, hash_b)
         similarity = max(0.0, 1.0 - distance / 64.0)
         state = self.state_for_distance(distance)
         return ImageMatchResult(
             matched=state != NO_MATCH,
-            method="ahash",
+            method=method,
             distance=distance,
             similarity=round(similarity, 4),
             state=state,

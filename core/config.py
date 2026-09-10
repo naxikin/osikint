@@ -19,6 +19,7 @@ ENV_OVERRIDES = {
     "OSINT_REGION": (("search", "region"), str),
     "OSINT_MAX_RESULTS": (("search", "max_results"), int),
     "OSINT_LEET_VARIANTS": (("search", "leet_variants"), _bool),
+    "OSINT_USERNAME_CHECK": (("search", "username_check"), _bool),
     "OSINT_OCR_ENABLED": (("ocr", "enabled"), _bool),
     "OSINT_OUTPUT_DIR": (("output", "directory"), str),
     "OSINT_HEADLESS": (("browser", "headless"), _bool),
@@ -75,6 +76,18 @@ class Config:
             if platform_filter and name not in platform_filter:
                 continue
             selected[name] = spec["domain"]
+        return selected
+
+    def enabled_platform_specs(self, platform_filter=None) -> dict:
+        """Like enabled_platform_domains, but keeps the full spec (e.g.
+        profile_url_template) instead of just the domain string."""
+        selected = {}
+        for name, spec in self.platforms.items():
+            if not spec.get("enabled", True):
+                continue
+            if platform_filter and name not in platform_filter:
+                continue
+            selected[name] = spec
         return selected
 
     def to_dict(self) -> dict:

@@ -4,6 +4,7 @@ search:
   region: id-id
   max_results: 30
   leet_variants: true
+  username_check: true
   queries:
     - '"{keyword}" site:{site}'
     - "inurl:{keyword} site:{site}"
@@ -31,7 +32,7 @@ collector:
 
 image:
   download: true
-  hash_algorithms: [average, sha256]
+  hash_algorithms: [average, sha256, phash, dhash]
   max_bytes: 10485760
 
 ocr:

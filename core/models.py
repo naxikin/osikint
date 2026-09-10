@@ -72,6 +72,8 @@ class OCRResult:
 class ImageAnalysis:
     average_hash: Optional[str] = None
     sha256: Optional[str] = None
+    phash: Optional[str] = None
+    dhash: Optional[str] = None
 
     def to_dict(self) -> dict:
         return asdict(self)

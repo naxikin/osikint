@@ -5,6 +5,7 @@ from core.logger import get_logger
 from core.models import ProfileResult
 from correlation.image_matcher import ImageMatcher
 from correlation.username_matcher import contains_keyword
+from utils.redaction import redact_list, redact_text
 from utils.validators import platform_from_url
 
 logger = get_logger("analyzers")
@@ -23,6 +24,7 @@ class ProfileAnalyzer:
         image_downloader=None,
         platform_domains: dict = None,
         image_dir_factory=None,
+        privacy_config: dict = None,
     ):
         self.collector = collector
         self.extractor = extractor
@@ -34,6 +36,7 @@ class ProfileAnalyzer:
         self.image_downloader = image_downloader
         self.platform_domains = platform_domains or {}
         self.image_dir_factory = image_dir_factory
+        self.privacy_config = privacy_config or {}
 
     def analyze(
         self,
@@ -113,13 +116,23 @@ class ProfileAnalyzer:
 
         platform = platform_from_url(url, self.platform_domains)
 
+        # Redaction runs last, after keyword/OCR detection above, so it
+        # never hides a legitimate match - it only scrubs what gets
+        # persisted in the report (skills.md section 36).
+        stored_account_names = redact_list(
+            account_names, self.privacy_config
+        )
+        stored_ocr_text = redact_text(ocr_text, self.privacy_config)
+        if ocr_analysis:
+            ocr_analysis = {**ocr_analysis, "text": stored_ocr_text}
+
         result = ProfileResult(
             url=final_url or url,
-            account_names=account_names,
+            account_names=stored_account_names,
             keyword_detected=keyword_detected,
             profile_image=profile_image,
             image_hash=image_hash,
-            ocr_text=ocr_text,
+            ocr_text=stored_ocr_text,
             reverse_image_match=reverse_match,
             risk_score=risk_result.score if risk_result else 0,
             platform=platform,
