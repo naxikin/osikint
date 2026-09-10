@@ -24,7 +24,42 @@
         unknown: {background: '#607d8b', border: '#43545e'}
     };
 
+    // Short platform monogram shown inside the node badge. Deliberately
+    // not a reproduction of each platform's actual trademarked logo
+    // (which would be a licensing concern to bundle in an OSS repo) -
+    // just an initials badge in the platform's brand color.
+    var GROUP_INITIALS = {
+        instagram: 'IG',
+        facebook: 'f',
+        x: 'X',
+        tiktok: 'TT',
+        github: 'GH',
+        linkedin: 'in',
+        gitlab: 'GL',
+        unknown: '?'
+    };
+
     var VIS = global.vis;
+    var badgeCache = {};
+
+    function platformBadge(group) {
+        if (badgeCache[group]) return badgeCache[group];
+
+        var colors = GROUP_COLORS[group] || GROUP_COLORS.unknown;
+        var initials = GROUP_INITIALS[group] || group.slice(0, 2).toUpperCase();
+        var fontSize = initials.length > 2 ? 16 : 22;
+
+        var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64">' +
+            '<circle cx="32" cy="32" r="29" fill="' + colors.background +
+            '" stroke="' + colors.border + '" stroke-width="4"/>' +
+            '<text x="32" y="40" font-family="Arial, Helvetica, sans-serif" ' +
+            'font-size="' + fontSize + '" font-weight="700" fill="#ffffff" ' +
+            'text-anchor="middle">' + initials + '</text></svg>';
+
+        var uri = 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+        badgeCache[group] = uri;
+        return uri;
+    }
 
     function App() {
         this.report = null;
@@ -36,6 +71,8 @@
 
     App.prototype.init = function () {
         var self = this;
+
+        this.renderPlatformLegend();
 
         OSINT.api('/api/sessions').then(function (data) {
             var options = (data.sessions || []).map(function (s) {
@@ -102,6 +139,18 @@
         return SIGNAL_COLORS[signal] || '#9e9e9e';
     };
 
+    App.prototype.renderPlatformLegend = function () {
+        var html = Object.keys(GROUP_COLORS)
+            .filter(function (group) { return group !== 'keyword'; })
+            .map(function (group) {
+                return '<span><img src="' + platformBadge(group) +
+                    '" width="16" height="16" style="border-radius:50%;vertical-align:middle;"> ' +
+                    OSINT.esc(group) + '</span>';
+            })
+            .join('');
+        $('#platformLegend').html(html);
+    };
+
     App.prototype.renderLegend = function (signals) {
         var html = Object.keys(signals).map(function (signal) {
             return '<span><i style="background:' + this.color(signal) + '"></i>' +
@@ -133,14 +182,16 @@
             }).map(function (node) {
                 var group = GROUP_COLORS[node.group] || GROUP_COLORS.unknown;
                 var color = group.background;
-                var size = 10 + Math.min(30, (node.risk_score || 0) * 2);
+                var size = 14 + Math.min(30, (node.risk_score || 0) * 2);
+                var isKeyword = node.shape === 'star';
                 return {
                     id: node.id,
                     label: OSINT.shorten(node.label || node.id, 22),
                     title: node.id,
                     group: node.group,
-                    shape: node.shape || 'dot',
-                    size: node.shape === 'star' ? 18 : size,
+                    shape: isKeyword ? 'star' : 'circularImage',
+                    image: isKeyword ? undefined : platformBadge(node.group),
+                    size: isKeyword ? 18 : size,
                     color: node.color || color,
                     meta: node
                 };
@@ -194,7 +245,10 @@
         if (node && node.group === 'keyword') {
             html += '<p class="text-white">Target keyword node</p>';
         } else if (node) {
-            html += '<p class="text-white">Platform: <b>' + OSINT.esc(node.group) + '</b></p>';
+            html += '<p class="text-white">Platform: ' +
+                '<img src="' + platformBadge(node.group) +
+                '" width="18" height="18" style="border-radius:50%;vertical-align:middle;"> ' +
+                '<b>' + OSINT.esc(node.group) + '</b></p>';
             html += '<p class="text-white">Risk: ' + OSINT.riskBadge(
                 OSINT.riskLevel(node.risk_score || 0), node.risk_score || 0
             ) + '</p>';
